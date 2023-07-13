@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/bin/zsh
 
-head="$(git branch --show-current 2>/dev/null)" && [ -n "$head" ] ||
-head="$(git rev-parse --verify --short HEAD 2>/dev/null)" 
-[ -n "$head" ] && printf '%s\n' "$head"
+{ head="$(git branch --show-current 2>/dev/null)" && [ -n "$head" ]; } ||
+{ head="$(git rev-parse --verify --short HEAD 2>/dev/null)" && [ -n "$head" ]; } &&
+printf '%s\n' "$head"
