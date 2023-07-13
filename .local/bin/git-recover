@@ -1,0 +1,2 @@
+#!/bin/zsh
+git fsck --unreachable | awk '$2 == "blob"'

@@ -1,0 +1,18 @@
+#!/usr/bin/awk -f
+{ print distance($1) " " $1; }
+
+# Given a revision name consisting of a ref name and parent suffixes,
+# calculate the distance between the ref and the revision.
+function distance(s, n, p) {
+	for(n = 0; ;) {
+		if(p = match(s, /\^00*$/))
+			;
+		else if(p = match(s, /\^[0-9]*$/) || p = match(s, /~$/))
+			n++;
+		else if(p = match(s, /~[0-9]*$/))
+			n += substr(s, p + 1);
+		else break;
+		s = substr(s, 1, p - 1);
+	}
+	return n;
+}

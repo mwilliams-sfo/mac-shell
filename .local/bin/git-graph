@@ -1,0 +1,2 @@
+#!/bin/zsh
+exec git log --graph --decorate "$@"

@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+branch="$(git branch --show-current 2>/dev/null)" && [ -n "$branch" ] &&
+git fetch origin "$branch" &&
+git reset "origin/$branch"
