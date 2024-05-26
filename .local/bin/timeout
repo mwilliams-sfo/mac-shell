@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+require 5.8.0;
+use Errno;
+
+sub wait_with_timeout {
+	my ($pid, $timeout) = @_;
+	if ($timeout == 0) {
+		return waitpid $pid, 0;
+	}
+	eval {
+		local $SIG{ALRM} = sub { die; };
+		alarm $timeout;
+		waitpid $pid, 0;
+		alarm 0;
+		$pid;
+	};
+}
+
+sub main {
+	my $timeout, $pid;
+	if ($#_ == -1 || ($timeout = shift) !~ m/^[0-9]+$/) {
+		125;
+	} elsif ($#_ == -1) {
+		127;
+	} elsif (!defined ($pid = fork)) {
+		125;
+	} elsif ($pid == 0) {
+		exec { $_[0] } @_;
+		exit (${!ENOENT} ? 127 : 126);
+	} elsif (!defined (wait_with_timeout $pid, $timeout)) {
+		kill 'TERM', $pid;
+		waitpid $pid, 0;
+		124;
+	} else {
+		$? >> 8;
+	}
+}
+
+exit (main (@ARGV));
