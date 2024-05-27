@@ -1,9 +1,10 @@
 #!/usr/bin/perl
 
 require 5.8.0;
+use strict;
 use Errno;
 
-%error = (
+my %error = (
 	TIMED_OUT => 124,
 	FAILED => 125,
 	NOT_INVOKED => 126,
@@ -25,7 +26,7 @@ sub wait_with_timeout {
 }
 
 sub main {
-	my $timeout, $pid;
+	my ($timeout, $pid);
 	if (!@_ || ($timeout = shift) !~ m/^[0-9]+$/) {
 		$error{FAILED};
 	} elsif (!@_) {
@@ -35,7 +36,7 @@ sub main {
 	} elsif ($pid == 0) {
 		eval { setpgrp; };
 		exec { $_[0] } @_;
-		exit $error{${!ENOENT} ? 'NOT_FOUND' : 'NOT_INVOKED'};
+		exit $error{$!{ENOENT} ? 'NOT_FOUND' : 'NOT_INVOKED'};
 	} elsif (!defined (wait_with_timeout $pid, $timeout)) {
 		kill 'TERM', $pid;
 		waitpid $pid, 0;
