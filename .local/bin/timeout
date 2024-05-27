@@ -3,6 +3,13 @@
 require 5.8.0;
 use Errno;
 
+%error = (
+	TIMED_OUT => 124,
+	FAILED => 125,
+	NOT_INVOKED => 126,
+	NOT_FOUND => 127
+);
+
 sub wait_with_timeout {
 	my ($pid, $timeout) = @_;
 	if ($timeout == 0) {
@@ -19,19 +26,20 @@ sub wait_with_timeout {
 
 sub main {
 	my $timeout, $pid;
-	if ($#_ == -1 || ($timeout = shift) !~ m/^[0-9]+$/) {
-		125;
-	} elsif ($#_ == -1) {
-		127;
+	if (!@_ || ($timeout = shift) !~ m/^[0-9]+$/) {
+		$error{FAILED};
+	} elsif (!@_) {
+		$error{NOT_FOUND};
 	} elsif (!defined ($pid = fork)) {
-		125;
+		$error{FAILED};
 	} elsif ($pid == 0) {
+		eval { setpgrp; };
 		exec { $_[0] } @_;
-		exit (${!ENOENT} ? 127 : 126);
+		exit $error{${!ENOENT} ? 'NOT_FOUND' : 'NOT_INVOKED'};
 	} elsif (!defined (wait_with_timeout $pid, $timeout)) {
 		kill 'TERM', $pid;
 		waitpid $pid, 0;
-		124;
+		$error{TIMED_OUT};
 	} else {
 		$? >> 8;
 	}
