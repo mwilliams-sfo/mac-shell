@@ -11,27 +11,32 @@ my %error = (
 	NOT_FOUND => 127
 );
 
+sub with_timeout {
+	my ($timeout, $block) = @_;
+	if ($timeout == 0) {
+		$block->();
+	} else {
+		eval {
+			local $SIG{ALRM} = sub { die; };
+			alarm $timeout;
+			my $result = $block->();
+			alarm 0;
+			$result;
+		}
+	}
+}
+
 sub wait_with_timeout {
 	my ($pid, $timeout) = @_;
-	if ($timeout == 0) {
-		return waitpid $pid, 0;
-	}
-	eval {
-		local $SIG{ALRM} = sub { die; };
-		alarm $timeout;
-		waitpid $pid, 0;
-		alarm 0;
-		$pid;
-	};
+	with_timeout $timeout, sub { waitpid $pid, 0; };
 }
 
 sub main {
-	my ($timeout, $pid);
-	if (!@_ || ($timeout = shift) !~ m/^[0-9]+$/) {
+	if (!@_ || (my $timeout = shift) !~ m/^[0-9]+$/) {
 		$error{FAILED};
 	} elsif (!@_) {
 		$error{NOT_FOUND};
-	} elsif (!defined ($pid = fork)) {
+	} elsif (!defined (my $pid = fork)) {
 		$error{FAILED};
 	} elsif ($pid == 0) {
 		eval { setpgrp; };
