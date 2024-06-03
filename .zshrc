@@ -24,10 +24,10 @@ git_rev_name() {
 	local rev="$1"
 	# Prefer heads over tags over remotes.
 	{
-		timeout 1 git name-rev --name-only --no-undefined --refs="refs/heads/*" -- "$rev" 2>/dev/null
-		timeout 1 git name-rev --name-only --no-undefined --refs="refs/tags/*" -- "$rev" 2>/dev/null
-		timeout 1 git name-rev --name-only --no-undefined -- "$rev" 2>/dev/null
-	} | sort_revs | sed -e 's/\^0$//' | head -n 1
+		timeout 1 git name-rev --name-only --no-undefined --refs="refs/heads/*" -- "$rev"
+		timeout 1 git name-rev --name-only --no-undefined --refs="refs/tags/*" -- "$rev"
+		timeout 1 git name-rev --name-only --no-undefined -- "$rev"
+	} 2>/dev/null | sort_revs | sed -e 's/\^0$//' | head -n 1
 }
 
 git_action() {
