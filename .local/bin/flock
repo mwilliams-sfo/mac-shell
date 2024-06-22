@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use warnings;
+use Fcntl qw/:flock/;
+
+sub usage {
+	printf STDERR <<EOF;
+Usage:
+	$0 [options] file [ program arguments | -c command ]
+EOF
+}
+
+sub do_flock {
+	my ($fh, $command) = @_;
+	if (!eval { flock $fh, LOCK_EX; }) {
+		1;
+	} elsif (!defined $command) {
+		0;
+	} elsif (!defined (my $pid = fork)) {
+		print STDERR "Cannot fork\n";
+		1;
+	} elsif ($pid == 0) {
+		if (ref $command eq 'ARRAY') {
+			exec { $$command[0] } @$command;
+		} else {
+			exec $command;
+		}
+		exit 1;
+	} else {
+		waitpid $pid, 0;
+		$? >> 8;
+	}
+}
+
+sub main {
+	if (!@_) {
+		usage;
+		return 1;
+	}
+	my $file = shift @_;
+	if ($#_ == 1 && $_[0] eq '-c') {
+		open my $fh, '<', $file || return 1;
+		do_flock $fh, $_[1];
+	} elsif (@_) {
+		open my $fh, '<', $file || return 1;
+		do_flock $fh, \@_;
+	} else {
+		open my $fh, '<&=', $file || return 1;
+		do_flock $fh;
+	}
+}
+
+exit(main(@ARGV));
