@@ -4,15 +4,55 @@ use warnings;
 use Fcntl qw/:flock/;
 
 sub usage {
-	printf STDERR <<EOF;
-Usage:
-	$0 [options] file [ program arguments | -c command ]
+	print STDERR <<EOF;
+Usage: $0 [options] file [ program arguments | -c command ]
+	--shared: Take a shared lock.
 EOF
 }
 
+sub parse_long_opt {
+	my ($args, $options) = @_;
+	if ($$args[0] eq '--shared') {
+		$$options{shared} = 1;
+		shift @$args;
+		1;
+	} else {
+		0;
+	}
+}
+
+sub parse_short_opt {
+	my ($args, $options) = @_;
+	my $opt = substr $$args[0], 1, 1, '';
+	if ($opt eq 's') {
+		$$options{shared} = 1;
+		shift @$args if $$args[0] eq '-';
+		1;
+	} else {
+		0;
+	}
+}
+
+sub parse_opts {
+	my $args = shift @_;
+	my %options = ();
+	while (@$args && $$args[0] =~ m/^-./) {
+		if ($$args[0] eq '--') {
+			shift @$args;
+			last;
+		}
+		next if $$args[0] =~ m/^--/ && parse_long_opt $args, \%options;
+		next if parse_short_opt $args, \%options;
+		print STDERR "Unrecognized option: $$args[0]\n";
+		return undef;
+	}
+	\%options;
+}
+
 sub do_flock {
-	my ($fh, $command) = @_;
-	if (!eval { flock $fh, LOCK_EX; }) {
+	my ($options, $fh, $command) = @_;
+	my $mode = $$options{shared} ? LOCK_SH : LOCK_EX;
+	if (!eval { flock $fh, $mode; }) {
 		1;
 	} elsif (!defined $command) {
 		0;
@@ -33,20 +73,21 @@ sub do_flock {
 }
 
 sub main {
-	if (!@_) {
+	my $options = parse_opts \@_;
+	if (!defined $options || !@_) {
 		usage;
 		return 1;
 	}
 	my $file = shift @_;
 	if ($#_ == 1 && $_[0] eq '-c') {
 		open my $fh, '<', $file || return 1;
-		do_flock $fh, $_[1];
+		do_flock $options, $fh, $_[1];
 	} elsif (@_) {
 		open my $fh, '<', $file || return 1;
-		do_flock $fh, \@_;
+		do_flock $options, $fh, \@_;
 	} else {
 		open my $fh, '<&=', $file || return 1;
-		do_flock $fh;
+		do_flock $options, $fh;
 	}
 }
 
