@@ -6,31 +6,42 @@ use Fcntl qw/:flock/;
 sub usage {
 	print STDERR <<EOF;
 Usage: $0 [options] file [ program arguments | -c command ]
+	--close: Close file before executing command.
 	--shared: Take a shared lock.
 EOF
 }
 
 sub parse_long_opt {
 	my ($args, $options) = @_;
-	if ($$args[0] eq '--shared') {
+	if ($$args[0] eq '--close') {
+		$$options{close} = 1;
+		goto parsed;
+	} elsif ($$args[0] eq '--shared') {
 		$$options{shared} = 1;
-		shift @$args;
-		1;
+		goto parsed;
 	} else {
-		0;
+		return 0;
 	}
+parsed:
+	shift @$args;
+	1;
 }
 
 sub parse_short_opt {
 	my ($args, $options) = @_;
 	my $opt = substr $$args[0], 1, 1, '';
-	if ($opt eq 's') {
+	if ($opt eq 'o') {
+		$$options{close} = 1;
+		goto parsed;
+	} elsif ($opt eq 's') {
 		$$options{shared} = 1;
-		shift @$args if $$args[0] eq '-';
-		1;
+		goto parsed;
 	} else {
-		0;
+		return 0;
 	}
+parsed:
+	shift @$args if $$args[0] eq '-';
+	1;
 }
 
 sub parse_opts {
@@ -57,9 +68,10 @@ sub do_flock {
 	} elsif (!defined $command) {
 		0;
 	} elsif (!defined (my $pid = fork)) {
-		print STDERR "Cannot fork\n";
+		print STDERR "Cannot create child process\n";
 		1;
 	} elsif ($pid == 0) {
+		close $fh if $$options{close};
 		if (ref $command eq 'ARRAY') {
 			exec { $$command[0] } @$command;
 		} else {
