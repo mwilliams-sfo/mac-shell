@@ -48,22 +48,14 @@ git_action() {
 	fi
 }
 
-dquote() {
-	local c
-	for c in \\ \" \` \$; do
-		set -- "${@//"$c"/\\"$c"}" 
-	done
-	[ $# = 0 ] || printf '"%s"' "$1"
-	(( $# < 2 )) || printf ' "%s"' "${@[2,-1]}"
-	echo
-}
-
-pquote()
-	dquote "${@//\%/%%}"
-
 prompt_status() {
-	(( $1 <= 128 )) || set -- "$1 ${signals[$1 - 127]}"
-	[ 0 = "$1" ] || printf 'exit=%s\n' "$1"
+	if [ 0 != "$1" ]; then
+		printf 'exit=%s' "$1"
+		if (( $1 > 127 )) && [ -n "${signals[$1 - 127]}" ]; then
+			printf ' (%s)' "${signals[$1 - 127]}"
+		fi
+		echo
+	fi
 }
 
 prompt_git_head() {
@@ -78,27 +70,27 @@ prompt_git_head() {
 	branch="$(git branch --show-current)"
 	revision="$(git rev-parse --short HEAD)"
 	if [ -n "$branch" ]; then
-		eval printf "'%%B%%F{green}%s%%f%%b (%%F{yellow}%s%%f)'" $(pquote "$branch" "$revision")
-		return
+		print -nP "%B%F{green}${branch//\%/%%}%f%b (%F{yellow}${revision//\%/%%}%f)"
+	else
+		print -nP "%F{yellow}${revision//\%/%%}%f"
+		name="$(git_rev_name HEAD)"
+		case "$name" in
+		"")	return ;;
+		tags/*)
+			name_color=yellow
+			name="${name#tags/}"
+			;;
+		remotes/*)
+			name_color=red
+			name="${name#remotes/}"
+			;;
+		*)
+			name_color=green
+			name="${name#heads/}"
+			;;
+		esac
+		print -nP " (%B%F{$name_color}${name//\%/%%}%f%b)"
 	fi
-
-	eval printf "'%%F{yellow}%s%%f'" $(pquote "$revision")
-	name="$(git_rev_name HEAD)" && [ -z "$name" ] && return
-	case "$name" in
-	tags/*)
-		name_color=yellow
-		name="${name#tags/}"
-		;;
-	remotes/*)
-		name_color=red
-		name="${name#remotes/}"
-		;;
-	*)
-		name_color=green
-		name="${name#heads/}"
-		;;
-	esac
-	eval printf "' (%%B%%F{%s}%s%%f%%b)'" $(pquote "$name_color" "$name")
 }
 
 prompt_git() {
@@ -111,32 +103,30 @@ prompt_git() {
 	else
 		root="$(basename "$root")"
 	fi
-	eval printf "'%%F{blue}[%s]%%f%s\\n'" $(pquote "$root" "$subdir")
+	print -P "%F{blue}[${root//\%/%%}]%f${subdir//\%/%%}"
 
 	prompt_git_head
 	action="$(git_action)"
-	[ -z "$action" ] || eval printf "' (%s)'" $(pquote "$action")
+	[ -z "$action" ] || printf ' (%s)' "$action"
 	echo
 }
 
-prompt() {
+precmd() {
 	local stat=$?
+	trap INT
 	if [ 1 != "$INTELLIJ_TERMINAL" ] && [ -n "$TERM" ]; then
-		printf '%%{'
 		tput init
-		printf '%%}'
 	fi
 	prompt_status "$stat"
 	echo
 	if [ true = "$(git rev-parse --is-inside-work-tree 2> /dev/null)" ]; then
 		prompt_git
 	else
-		echo '%~'
+		print -P '%~'
 	fi
-	eval printf "'%%B%%(!.%%Sroot%%s .)%s%%#%%b '" $(pquote "$ZSH_NAME")
 }
-set -o PROMPT_SUBST
-PS1='$(prompt)'
+
+PS1='%B%(!.%Sroot%s .)%N%#%b '
 
 forget() {
 	local HISTSIZE=0
